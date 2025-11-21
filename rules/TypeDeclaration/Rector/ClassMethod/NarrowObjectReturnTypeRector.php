@@ -123,10 +123,6 @@ CODE_SAMPLE
             return null;
         }
 
-        if ($this->hasParentMethodWithNonObjectReturn($node)) {
-            return null;
-        }
-
         $actualReturnClass = $this->getActualReturnClass($node);
 
         if ($actualReturnClass === null) {
@@ -148,6 +144,10 @@ CODE_SAMPLE
         }
 
         if (! $this->isNarrowingValid($declaredType, $actualReturnClass)) {
+            return null;
+        }
+
+        if (! $this->isNarrowingValidFromParent($node, $actualReturnClass)) {
             return null;
         }
 
@@ -241,16 +241,16 @@ CODE_SAMPLE
             ->yes();
     }
 
-    private function hasParentMethodWithNonObjectReturn(ClassMethod $classMethod): bool
+    private function isNarrowingValidFromParent(ClassMethod $classMethod, string $actualReturnClass): bool
     {
         if ($classMethod->isPrivate()) {
-            return false;
+            return true;
         }
 
         $classReflection = $this->reflectionResolver->resolveClassReflection($classMethod);
 
         if (! $classReflection instanceof ClassReflection) {
-            return false;
+            return true;
         }
 
         $ancestors = array_filter(
@@ -281,14 +281,14 @@ CODE_SAMPLE
                 continue;
             }
 
-            if ($parentReturnType instanceof Identifier && $parentReturnType->name === 'object') {
-                continue;
-            }
+            $parentReturnTypeName = $parentReturnType->toString();
 
-            return true;
+            if (! $this->isNarrowingValid($parentReturnTypeName, $actualReturnClass)) {
+                return false;
+            }
         }
 
-        return false;
+        return true;
     }
 
     private function getActualReturnClass(ClassMethod $classMethod): ?string
